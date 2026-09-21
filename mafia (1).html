@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mafia – spillederverktøy</title>
+<style>
+:root{
+  --bg:#14110f; --panel:#1d1815; --line:#332b24; --text:#ede7dd; --muted:#a89a86;
+  --blood:#8b1e24; --blood-bright:#b23037; --gold:#c9a24b;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Georgia,'Iowan Old Style',serif;line-height:1.5}
+h1,h2,h3{font-family:Georgia,serif;font-weight:700;margin:0 0 .3em}
+h1{font-size:1.9rem;letter-spacing:.02em;color:var(--gold)}
+h2{font-size:1.3rem;color:var(--text)}
+.wrap{max-width:640px;margin:0 auto;padding:28px 20px 60px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:20px;margin-bottom:16px}
+.muted{color:var(--muted);font-size:.92rem}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0}
+label{font-size:.95rem}
+input[type=text],input[type=number],select{
+  background:#0f0c0a;border:1px solid var(--line);color:var(--text);padding:8px 10px;border-radius:4px;
+  font-family:inherit;font-size:.95rem
+}
+textarea{
+  background:#0f0c0a;border:1px solid var(--line);color:var(--text);padding:8px 10px;border-radius:4px;
+  font-family:inherit;font-size:.95rem;width:100%;resize:vertical
+}
+input[type=number]{width:64px}
+input[type=text]{width:100%}
+button{
+  background:var(--blood);color:#fff;border:none;padding:10px 18px;border-radius:4px;
+  font-family:inherit;font-size:.95rem;cursor:pointer;letter-spacing:.01em
+}
+button:hover{background:var(--blood-bright)}
+button.secondary{background:transparent;border:1px solid var(--line);color:var(--text)}
+button.secondary:hover{border-color:var(--gold);color:var(--gold)}
+button:disabled{opacity:.4;cursor:not-allowed}
+.role-line{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:8px 0;border-bottom:1px solid var(--line)}
+.role-line:last-child{border-bottom:none}
+.role-line .rname{flex:1 1 100px;min-width:70px}
+.role-line .desc{flex:1 1 100%;color:var(--muted);font-size:.85rem;margin-top:-2px}
+.plist{display:flex;flex-direction:column;gap:6px;margin:14px 0}
+.pbtn{
+  text-align:left;background:#0f0c0a;border:1px solid var(--line);color:var(--text);
+  padding:10px 14px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:.95rem
+}
+.pbtn.sel{border-color:var(--gold);color:var(--gold);background:#1a140a}
+.pbtn.dead{opacity:.35;text-decoration:line-through;cursor:default}
+.tag{display:inline-block;font-size:.75rem;color:var(--muted);border:1px solid var(--line);padding:1px 7px;border-radius:10px;margin-left:8px}
+.death{color:var(--blood-bright)}
+.step-badge{color:var(--gold);font-size:.85rem;letter-spacing:.03em;margin-bottom:6px}
+hr{border:none;border-top:1px solid var(--line);margin:16px 0}
+details.roledrop{flex:1 1 100%;margin-top:6px;border:1px solid var(--line);border-radius:4px;padding:8px 12px;background:#0f0c0a}
+details.roledrop summary{cursor:pointer;color:var(--gold);font-size:.88rem}
+details.roledrop .plist{margin-top:10px}
+details.roledrop label{display:block;padding:4px 2px}
+.death-item{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}
+.death-item:last-child{border-bottom:none}
+.tag.cause-natt{border-color:#5a4a3a}
+.tag.cause-seng{border-color:#8a5a9a;color:#c79bd6}
+.tag.cause-gift{border-color:var(--gold);color:var(--gold)}
+.tag.cause-dag{border-color:var(--blood-bright);color:var(--blood-bright)}
+.tag.cause-skudd{border-color:#7a8a9a}
+.tag.cause-narr{border-color:#7ec98a;color:#7ec98a}
+.tag.cause-bombe{border-color:var(--blood-bright);color:var(--blood-bright)}
+.tag.cause-hevner{border-color:var(--blood-bright);color:var(--blood-bright)}
+.tag.cause-martyr{border-color:#7ec9c9;color:#7ec9c9}
+.tag.cause-seriemorder{border-color:#5a1e3a;color:#d67ea0}
+.tag.cause-mafia_serie{border-color:#7a2a3a;color:#e08a6a}
+.tag.cause-veteran{border-color:#7a8a9a;color:#7a8a9a}
+.notice{border-left:3px solid var(--gold);padding:8px 12px;margin-top:10px;background:#1a140a;font-size:.9rem}
+.namegrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.hdr-row{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px 8px}
+.hdr-row h1{margin-bottom:0}
+.hdr-row .btns{display:flex;flex-wrap:wrap;gap:8px}
+@media (max-width:420px){
+  .namegrid{grid-template-columns:1fr}
+  .role-line select{max-width:88px}
+}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<script>
+const ROLES=[
+ {id:'mafia',name:'Mafia',desc:'Våkner hver natt og velger hvem som skal dø.',card:'Ess ♠'},
+ {id:'prest',name:'Prest',desc:'Gifter to spillere. De dør sammen om en av dem dør.',card:'Knekt ♥'},
+ {id:'hore',name:'Hore',desc:'Velger en seng. Dør bare om det er mafiaens offer.',card:'Konge ♦'},
+ {id:'healer',name:'Healer',desc:'Helbreder en spiller mot både død og stumhet.',card:'Dame ♥'},
+ {id:'veteran',name:'Veteranen',desc:'Overlever det første mordforsøket om natten. Skjer det igjen natten etter, overlever personen på nytt og skyter tilbake.',card:'5 ♥'},
+ {id:'detektiv',name:'Detektiv',desc:'Undersøker om en spiller er mafia.',card:'10 ♦'},
+ {id:'slakter',name:'Slakter',desc:'Gjør en spiller stum neste dag.',card:'9 ♦'},
+ {id:'sheriff',name:'Sheriff',desc:'Kan skyte én spiller på dagtid fra dag 3, med en dags ventetid mellom hvert skudd. Treffer sheriffen en mafia eller seriemorderen, dør de. Er målet uskyldig, dør sheriffen også.',card:'8 ♦'},
+ {id:'bombe',name:'Selvmordsbombe',desc:'Hvis stemt ut på dagtid, vinner selvmordsbomben spillet med en gang, og spillet avsluttes.',card:'7 ♣'},
+ {id:'hevner',name:'Hevneren',desc:'Hvis stemt ut på dagtid, kan hevneren ta med seg en spiller inn i døden.',card:'3 ♣'},
+ {id:'ordforer',name:'Ordføreren',desc:'Har vanligvis én stemme. Kan én gang avsløre seg som ordfører for å få to stemmer.',card:'6 ♥'},
+ {id:'seriemorder',name:'Seriemorderen',desc:'Spiller alene, uavhengig av mafiaen. Våkner hver natt og velger ett offer å drepe. Vinner hvis alle andre er døde og han er den eneste som fortsatt er i live.',card:'4 ♣'},
+ {id:'martyr',name:'Martyren',desc:'Hvis en uskyldig blir stemt ut, kan martyren ofre seg istedenfor — den uskyldige overlever, martyren dør.',card:'2 ♥'},
+ {id:'hoffnarren',name:'Hoffnarren',desc:'Hoffnarren dør ikke ved utstemming på dagen, men mister stemmeretten for resten av spillet.',card:'Joker ♠'},
+ {id:'spokelse',name:'Spøkelset',desc:'Aktiveres når spilleren dør. Hver natt etter det hjemsøker spøkelset én spiller, som mister evnen sin den natten uten å vite det. Rammes mafiaen, kan de ikke drepe den natten — det oppdages først dagen etter.',card:'5 ♠'}
+];
+const RANKS=['Ess','Konge','Dame','Knekt','10','9','8','7','6','5','4','3','2','Joker'];
+const SUITS=['♠','♥','♦','♣'];
+const NIGHT_ORDER=['prest','mafia','seriemorder','healer','hore','detektiv','slakter'];
+const NO_WAKE_ORDER=['sheriff','bombe','hevner','ordforer','veteran','martyr','hoffnarren','spokelse'];
+
+let state={phase:'setup',players:[],roles:{},night:0,activeSteps:[],stepIndex:0,
+  nightData:{},married:null,silenced:null,deaths:[],detectiveMsg:null,winner:null,deathLog:[],sheriffCooldownNight:null};
+let snapshot=null;
+function saveSnapshot(){snapshot=JSON.stringify(state)}
+function restoreSnapshot(){if(snapshot) Object.assign(state,JSON.parse(snapshot))}
+function undoNightResolve(){restoreSnapshot(); state.phase='night'; state.stepIndex=state.activeSteps.length-1; render()}
+function undoVote(){restoreSnapshot(); state.phase='vote'; render()}
+function undoSheriffShot(){restoreSnapshot(); state.phase='sheriffShoot'; render()}
+function backToDaySummary(){state.phase='daySummary'; render()}
+
+ROLES.forEach((r)=>{state.roles[r.id]={enabled:r.id==='mafia',count:r.id==='mafia'?1:0,
+  card: r.card}});
+let playerCount=8, playerNames=Array.from({length:8},(_,i)=>'Spiller '+(i+1));
+let playerRoles=Array.from({length:8},()=>'sivil');
+let manualAssign=false;
+function toggleManualAssign(){manualAssign=!manualAssign; if(!manualAssign) openRoleDrop=null; render()}
+let tilfeldigRollerChecked=false;
+let preRandomSnapshot=null;
+function toggleTilfeldigRoller(){
+  if(!tilfeldigRollerChecked){
+    preRandomSnapshot=JSON.stringify({roles:state.roles, playerRoles});
+    randomizeRoles();
+  } else {
+    if(preRandomSnapshot){
+      const restored=JSON.parse(preRandomSnapshot);
+      state.roles=restored.roles;
+      playerRoles=restored.playerRoles;
+    }
+    tilfeldigRollerChecked=false;
+    render();
+  }
+}
+function randomizeRoles(){
+  const mafiaCount=Math.max(1,Math.min(playerCount-1,Math.round(playerCount/5)));
+  state.roles['mafia'].enabled=true;
+  state.roles['mafia'].count=mafiaCount;
+  let used=mafiaCount;
+  const specials=ROLES.filter(r=>r.id!=='mafia');
+  const shuffledRoles=[...specials].sort(()=>Math.random()-0.5);
+  shuffledRoles.forEach(r=>{
+    const include=Math.random()<0.5 && used<playerCount;
+    state.roles[r.id].enabled=include;
+    state.roles[r.id].count=include?1:0;
+    if(include) used+=1;
+  });
+  let pool=[];
+  ROLES.forEach(r=>{if(state.roles[r.id].enabled) for(let i=0;i<state.roles[r.id].count;i++) pool.push(r.id)});
+  while(pool.length<playerCount) pool.push('sivil');
+  pool.length=playerCount;
+  playerRoles=Array.from({length:playerCount},()=>'sivil');
+  tilfeldigRollerChecked=true;
+  render();
+}
+let openRoleDrop=null;
+function onRoleDropToggle(roleId,isOpen){openRoleDrop = isOpen? roleId : (openRoleDrop===roleId? null : openRoleDrop)}
+function toggleRolePlayer(roleId,i){
+  openRoleDrop=roleId;
+  if(playerRoles[i]===roleId){playerRoles[i]='sivil'; render(); return}
+  const count=state.roles[roleId].count;
+  const current=playerRoles.filter(x=>x===roleId).length;
+  if(current>=count){alert('Du har allerede valgt '+count+' til denne rollen. Øk antallet om du vil ha flere.'); return}
+  playerRoles[i]=roleId; render();
+}
+
+const app=document.getElementById('app');
+function render(){app.innerHTML=SCREENS[state.phase]()}
+
+function setPlayerCount(v){
+  playerCount=Math.max(3,parseInt(v)||3);
+  while(playerNames.length<playerCount) playerNames.push('Spiller '+(playerNames.length+1));
+  playerNames.length=playerCount;
+  while(playerRoles.length<playerCount) playerRoles.push('sivil');
+  playerRoles.length=playerCount;
+  render();
+}
+function setName(i,v){playerNames[i]=v||('Spiller '+(i+1))}
+let pasteNamesOpen=false;
+function togglePasteNames(){pasteNamesOpen=!pasteNamesOpen; render()}
+function applyPasteNames(text){
+  const names=text.split(/[\n,]+/).map(s=>s.trim()).filter(Boolean);
+  if(!names.length){ pasteNamesOpen=false; render(); return }
+  playerCount=Math.max(3,names.length);
+  playerNames=names.slice(0,playerCount);
+  while(playerNames.length<playerCount) playerNames.push('Spiller '+(playerNames.length+1));
+  playerRoles=Array.from({length:playerCount},(_,i)=>playerRoles[i]||'sivil');
+  pasteNamesOpen=false;
+  render();
+}
+function toggleRole(id){state.roles[id].enabled=!state.roles[id].enabled;
+  if(!state.roles[id].enabled) state.roles[id].count=0;
+  else if(state.roles[id].count===0) state.roles[id].count=1; render()}
+function setCount(id,v){state.roles[id].count=Math.max(0,parseInt(v)||0); render()}
+function tooManyRoles(){return assignedTotal()>playerCount}
+function setCard(id,part,v){
+  const [rank,suit]=state.roles[id].card.split(' ');
+  state.roles[id].card = part==='rank'? v+' '+suit : rank+' '+v;
+}
+
+function assignedTotal(){return Object.values(state.roles).reduce((s,r)=>s+(r.enabled?r.count:0),0)}
+
+function tooManyRolesMsg(){
+  const total=assignedTotal();
+  const over=total-playerCount;
+  return 'Du har valgt roller til '+total+' spillere, men dere er bare '+playerCount+'. Fjern '+over+' rolle'+(over===1?'':'r')+' (eller sett ned antallet) før du kan starte.';
+}
+function startGame(){
+  if(tooManyRoles()){alert(tooManyRolesMsg()); return}
+  state.players=playerNames.map((name,i)=>({name,role:playerRoles[i],
+    card: playerRoles[i]==='sivil'?'—':(state.roles[playerRoles[i]]?state.roles[playerRoles[i]].card:'—'),
+    alive:true,canTalk:true,canVote:true,jesterUsed:false,mayorRevealed:false,veteranShieldUsed:false,veteranLastAttackedNight:null,veteranRetaliationUsed:false,origIndex:i}));
+  state.night=0; state.married=null; state.sheriffCooldownNight=null;
+  startNight();
+}
+function goToReveal(){
+  if(tooManyRoles()){alert(tooManyRolesMsg()); return}
+  state.players=playerNames.map((name,i)=>({name,role:playerRoles[i],
+    card: playerRoles[i]==='sivil'?'—':(state.roles[playerRoles[i]]?state.roles[playerRoles[i]].card:'—'),
+    alive:true,canTalk:true,canVote:true,jesterUsed:false,mayorRevealed:false,veteranShieldUsed:false,veteranLastAttackedNight:null,veteranRetaliationUsed:false,origIndex:i}));
+  state.night=0; state.married=null; state.sheriffCooldownNight=null;
+  state.revealIndex=0; state.phase='reveal'; render();
+}
+function openEdit(){state.prevPhase=state.phase; state.phase='editRoles'; render()}
+function openCardRef(){state.prevPhase=state.phase; state.phase='cardRef'; render()}
+function closeCardRef(){state.phase=state.prevPhase; render()}
+function editRole(i,v){
+  state.players[i].role=v;
+  state.players[i].card = v==='sivil'?'—':(state.roles[v]?state.roles[v].card:'—');
+}
+function sortPlayers(by){
+  if(!by) return;
+  const marriedObjs = state.married ? state.married.map(i=>state.players[i]) : null;
+  const silencedObj = state.silenced!=null ? state.players[state.silenced] : null;
+  if(by==='name'){
+    state.players.sort((a,b)=>a.name.localeCompare(b.name,'no'));
+  } else if(by==='role'){
+    const order=id=>{ if(id==='sivil') return 999; const idx=ROLES.findIndex(r=>r.id===id); return idx===-1?999:idx; };
+    state.players.sort((a,b)=>order(a.role)-order(b.role));
+  } else if(by==='status'){
+    state.players.sort((a,b)=>(b.alive?1:0)-(a.alive?1:0));
+  } else if(by==='card'){
+    const rankOf=p=>{ if(p.card==='—') return RANKS.length; const idx=RANKS.indexOf(p.card.split(' ')[0]); return idx===-1?RANKS.length:idx; };
+    const suitOf=p=>{ if(p.card==='—') return SUITS.length; const idx=SUITS.indexOf(p.card.split(' ')[1]); return idx===-1?SUITS.length:idx; };
+    state.players.sort((a,b)=>rankOf(a)-rankOf(b) || suitOf(a)-suitOf(b));
+  } else if(by==='team'){
+    const teamOf=p=>{ if(p.role==='mafia') return 0; if(p.role==='seriemorder') return 1; return 2; };
+    state.players.sort((a,b)=>teamOf(a)-teamOf(b));
+  } else if(by==='vote'){
+    const voteOf=p=>(p.canVote?1:0)+(p.canTalk?1:0);
+    state.players.sort((a,b)=>voteOf(a)-voteOf(b));
+  } else if(by==='random'){
+    for(let i=state.players.length-1;i>0;i--){
+      const j=Math.floor(Math.random()*(i+1));
+      [state.players[i],state.players[j]]=[state.players[j],state.players[i]];
+    }
+  } else if(by==='original'){
+    state.players.sort((a,b)=>a.origIndex-b.origIndex);
+  }
+  if(marriedObjs) state.married=marriedObjs.map(p=>state.players.indexOf(p));
+  if(silencedObj) state.silenced=state.players.indexOf(silencedObj);
+  state._voteSel=null; state._sheriffSel=null; state._hevnerSel=null;
+  state._voteRevealIdx=null; state._eliminatedThisRound=null;
+  render();
+}
+function closeEdit(){state.phase=state.prevPhase; render()}
+function showRole(){state.phase='revealShown'; render()}
+function nextReveal(){
+  state.revealIndex++;
+  if(state.revealIndex>=state.players.length) startNight();
+  else {state.phase='reveal'; render()}
+}
+
+function roleAliveCount(r){return state.players.filter(p=>p.role===r&&p.alive).length}
+function roleEnabled(r){return state.roles[r]&&state.roles[r].enabled}
+function needsPriest(){
+  if(!roleEnabled('prest')||roleAliveCount('prest')===0) return false;
+  if(!state.married) return true;
+  const [a,b]=state.married;
+  return !(state.players[a].alive&&state.players[b].alive);
+}
+function ghostActive(){return roleEnabled('spokelse') && state.players.some(p=>p.role==='spokelse' && !p.alive)}
+function computeActiveSteps(){
+  let s=[];
+  if(ghostActive()) s.push('spokelse');
+  if(needsPriest()) s.push('prest');
+  ['mafia','seriemorder','healer','hore','detektiv','slakter'].forEach(r=>{if(roleAliveCount(r)>0)s.push(r)});
+  return s;
+}
+function hauntedRoleThisNight(){
+  const t=state.nightData.spokelseTarget;
+  return t!=null ? state.players[t].role : null;
+}
+function noRolesAssignedYet(){return playerRoles.every(r=>r==='sivil')}
+function computeIdentifyActiveSteps(){
+  return [...NIGHT_ORDER,...NO_WAKE_ORDER].filter(r=>roleEnabled(r)&&state.roles[r].count>0);
+}
+function startNight(){
+  saveSnapshot();
+  state.night++;
+  state.identifyNight = state.night===1 && noRolesAssignedYet();
+  state.activeSteps = state.identifyNight ? computeIdentifyActiveSteps() : computeActiveSteps();
+  state.stepIndex=0;
+  state.nightData={mafiaTarget:null,healTarget:null,horeBed:null,detektivTarget:null,slakterTarget:null,prestCouple:[],spokelseTarget:null,serieTarget:null};
+  state.players.forEach(p=>p.canTalk=true);
+  state.silenced=null;
+  state.phase= state.activeSteps.length? 'night' : 'daySummaryEmpty';
+  if(!state.activeSteps.length) resolveNight(); else render();
+  window.scrollTo(0,0);
+}
+function selectTarget(role,idx){
+  const nd=state.nightData;
+  if(role==='prest'){
+    let c=nd.prestCouple;
+    if(c.includes(idx)) c=c.filter(x=>x!==idx); else if(c.length<2) c.push(idx);
+    nd.prestCouple=c;
+  } else if(role==='mafia') nd.mafiaTarget=idx;
+  else if(role==='healer') nd.healTarget=idx;
+  else if(role==='hore') nd.horeBed=idx;
+  else if(role==='detektiv') nd.detektivTarget=idx;
+  else if(role==='slakter') nd.slakterTarget=idx;
+  else if(role==='spokelse') nd.spokelseTarget=idx;
+  else if(role==='seriemorder') nd.serieTarget=idx;
+  render();
+}
+function stepActionValid(role){
+  const nd=state.nightData;
+  if(role==='prest') return nd.prestCouple.length===2;
+  if(role==='mafia') return nd.mafiaTarget!=null;
+  if(role==='healer') return nd.healTarget!=null;
+  if(role==='hore') return nd.horeBed!=null;
+  if(role==='detektiv') return nd.detektivTarget!=null;
+  if(role==='slakter') return nd.slakterTarget!=null;
+  if(role==='spokelse') return nd.spokelseTarget!=null;
+  if(role==='seriemorder') return nd.serieTarget!=null;
+  return false;
+}
+function identifyToggle(role,idx){
+  const p=state.players[idx];
+  if(p.role===role){p.role='sivil'; p.card='—'; render(); return}
+  if(p.role!=='sivil'){alert('Denne spilleren har allerede en annen rolle registrert i natt. Fjern den først om du vil endre.'); return}
+  const count=state.roles[role].count;
+  const current=state.players.filter(x=>x.role===role).length;
+  if(current>=count){alert('Du har allerede valgt '+count+' til denne rollen. Øk antallet i oppsettet om du vil ha flere.'); return}
+  p.role=role; p.card=state.roles[role].card; render();
+}
+function stepValid(role){
+  const hasAction=NIGHT_ORDER.includes(role);
+  if(state.identifyNight){
+    const count=state.roles[role].count;
+    const picked=state.players.filter(p=>p.role===role).length;
+    if(picked<count) return false;
+    return hasAction ? stepActionValid(role) : true;
+  }
+  return stepActionValid(role);
+}
+function confirmStep(){
+  const role=state.activeSteps[state.stepIndex];
+  if(role==='detektiv'){
+    const t=state.nightData.detektivTarget;
+    state.detectiveMsg = hauntedRoleThisNight()==='detektiv'
+      ? 'Du får ingen klar visjon i natt.'
+      : state.players[t].name+' er '+(state.players[t].role==='mafia'?'MAFIA.':'IKKE mafia.');
+    state.phase='detektivResult'; render(); window.scrollTo(0,0); return;
+  }
+  if(role==='prest' && hauntedRoleThisNight()!=='prest') state.married=[...state.nightData.prestCouple];
+  nextStep();
+}
+function ackDetektiv(){state.phase='night'; nextStep()}
+function nextStep(){
+  state.stepIndex++;
+  if(state.stepIndex>=state.activeSteps.length) resolveNight(); else {state.phase='night'; render()}
+  window.scrollTo(0,0);
+}
+function stepBack(){
+  if(state.stepIndex>0){ prevStep(); return }
+  restoreSnapshot(); render();
+}
+function prevStep(){
+  if(state.stepIndex<=0) return;
+  state.stepIndex--;
+  const role=state.activeSteps[state.stepIndex];
+  const nd=state.nightData;
+  if(role==='prest'){nd.prestCouple=[]; state.married=null}
+  else if(role==='mafia') nd.mafiaTarget=null;
+  else if(role==='healer') nd.healTarget=null;
+  else if(role==='hore') nd.horeBed=null;
+  else if(role==='detektiv'){nd.detektivTarget=null; state.detectiveMsg=null}
+  else if(role==='slakter') nd.slakterTarget=null;
+  else if(role==='spokelse') nd.spokelseTarget=null;
+  else if(role==='seriemorder') nd.serieTarget=null;
+  state.phase='night'; render();
+}
+function resolveNight(){
+  saveSnapshot();
+  const nd=state.nightData;
+  const hauntedIdx=nd.spokelseTarget;
+  const hauntedRole=hauntedIdx!=null ? state.players[hauntedIdx].role : null;
+  const mafiaNullified = hauntedRole==='mafia';
+  const M=nd.mafiaTarget;
+  const S=nd.serieTarget;
+  const H = hauntedRole==='healer' ? null : nd.healTarget;
+  const horeBedEffective = hauntedRole==='hore' ? null : nd.horeBed;
+  let recap=[];
+  if(state.activeSteps.includes('spokelse') && hauntedIdx!=null) recap.push('Spøkelset hjemsøkte '+state.players[hauntedIdx].name+'.');
+  if(state.activeSteps.includes('prest')) recap.push('Presten giftet '+state.players[nd.prestCouple[0]].name+' og '+state.players[nd.prestCouple[1]].name+'.');
+  if(state.activeSteps.includes('mafia') && M!=null) recap.push('Mafiaen angrep '+state.players[M].name+'.');
+  if(state.activeSteps.includes('seriemorder') && S!=null) recap.push('Seriemorderen angrep '+state.players[S].name+'.');
+  if(state.activeSteps.includes('healer') && nd.healTarget!=null) recap.push('Healeren helbredet '+state.players[nd.healTarget].name+'.');
+  if(state.activeSteps.includes('hore') && nd.horeBed!=null) recap.push('Horen la seg hos '+state.players[nd.horeBed].name+'.');
+  if(state.activeSteps.includes('detektiv') && nd.detektivTarget!=null) recap.push('Detektiven undersøkte '+state.players[nd.detektivTarget].name+'.');
+  if(state.activeSteps.includes('slakter') && nd.slakterTarget!=null) recap.push('Slakteren valgte '+state.players[nd.slakterTarget].name+'.');
+  state.nightRecap=recap;
+  const horeIdx=roleAliveCount('hore')>0? state.players.findIndex(p=>p.role==='hore'&&p.alive) : -1;
+  let vetSaved=[];
+  let vetRetaliated=[];
+  let mafiaDirect=new Set();
+  let mafiaMissedHore=false;
+  if(!mafiaNullified && M!=null && M!==H){
+    if(horeIdx>-1 && M===horeIdx && hauntedRole!=='hore') mafiaMissedHore=true;
+    else mafiaDirect.add(M);
+  }
+  let bedDead=new Set();
+  if(horeIdx>-1 && horeBedEffective!=null && mafiaDirect.has(horeBedEffective)) bedDead.add(horeIdx);
+  let serieDirect=new Set();
+  let serieBlocked=false;
+  let comboDirect=new Set();
+  if(S!=null && S!==H && mafiaDirect.has(S)) comboDirect.add(S);
+  else if(S!=null && S!==H) serieDirect.add(S);
+  else if(S!=null && S===H) serieBlocked=true;
+  const attackedThisNight=new Set([...mafiaDirect,...serieDirect,...comboDirect]);
+  attackedThisNight.forEach(idx=>{
+    const p=state.players[idx];
+    if(p.role!=='veteran') return;
+    const consecutive = p.veteranShieldUsed && p.veteranLastAttackedNight===state.night-1;
+    if(!p.veteranShieldUsed){
+      p.veteranShieldUsed=true;
+      vetSaved.push(idx);
+    } else if(consecutive && !p.veteranRetaliationUsed){
+      vetSaved.push(idx);
+      const attackedByMafia=mafiaDirect.has(idx)||comboDirect.has(idx);
+      const attackedBySerie=serieDirect.has(idx)||comboDirect.has(idx);
+      let victimIdx=null;
+      if(attackedByMafia){
+        const mafiaAlive=state.players.map((pl,i)=>({pl,i})).filter(x=>x.pl.alive&&x.pl.role==='mafia');
+        if(mafiaAlive.length) victimIdx=mafiaAlive[Math.floor(Math.random()*mafiaAlive.length)].i;
+      } else if(attackedBySerie){
+        victimIdx=state.players.findIndex(pl=>pl.alive&&pl.role==='seriemorder');
+        if(victimIdx===-1) victimIdx=null;
+      }
+      if(victimIdx!=null){ vetRetaliated.push({vetIdx:idx,victimIdx}); p.veteranRetaliationUsed=true; }
+    }
+    p.veteranLastAttackedNight=state.night;
+  });
+  vetSaved.forEach(idx=>{
+    mafiaDirect.delete(idx); serieDirect.delete(idx); comboDirect.delete(idx);
+  });
+  vetRetaliated.forEach(({victimIdx})=>{
+    if(state.players[victimIdx].alive){
+      state.players[victimIdx].alive=false;
+      state.deathLog.push({night:state.night,cause:'veteran',name:state.players[victimIdx].name,role:state.players[victimIdx].role});
+    }
+  });
+  const direct=new Set([...mafiaDirect,...bedDead,...serieDirect]);
+  let married=new Set();
+  if(state.married){
+    const [a,b]=state.married;
+    if(direct.has(a) && !direct.has(b)) married.add(b);
+    if(direct.has(b) && !direct.has(a)) married.add(a);
+  }
+  const allDead=new Set([...direct,...married]);
+  allDead.forEach(i=>state.players[i].alive=false);
+  mafiaDirect.forEach(i=>state.deathLog.push({night:state.night,cause:comboDirect.has(i)?'mafia_serie':'natt',name:state.players[i].name,role:state.players[i].role}));
+  bedDead.forEach(i=>state.deathLog.push({night:state.night,cause:'seng',name:state.players[i].name,role:state.players[i].role}));
+  serieDirect.forEach(i=>state.deathLog.push({night:state.night,cause:'seriemorder',name:state.players[i].name,role:state.players[i].role}));
+  married.forEach(i=>state.deathLog.push({night:state.night,cause:'gift',name:state.players[i].name,role:state.players[i].role}));
+  state.silenced=(hauntedRole!=='slakter' && nd.slakterTarget!=null && nd.slakterTarget!==H && !allDead.has(nd.slakterTarget))?nd.slakterTarget:null;
+  if(state.silenced!=null) state.players[state.silenced].canTalk=false;
+  state.failedAttempts=[];
+  if(mafiaNullified && M!=null) state.failedAttempts.push('Mafiaens angrep mislyktes i natt — de kan ikke helt forklare hva som skjedde.');
+  if(!mafiaNullified && M!=null && M===H) state.failedAttempts.push('Mafiaen forsøkte å drepe '+state.players[M].name+', men forsøket mislyktes — personen ble reddet.');
+  if(!mafiaNullified && mafiaMissedHore) state.failedAttempts.push('Mafiaen kom til horens seng, men hun lå ikke der — angrepet mislyktes.');
+  if(serieBlocked) state.failedAttempts.push('Seriemorderen forsøkte å drepe '+state.players[S].name+', men forsøket mislyktes — personen ble reddet.');
+  vetSaved.forEach(idx=>{
+    const retal=vetRetaliated.find(r=>r.vetIdx===idx);
+    if(retal){
+      state.failedAttempts.push('Noen forsøkte å drepe '+state.players[idx].name+' igjen — veteranen overlevde og skjøt tilbake, og drepte '+state.players[retal.victimIdx].name+'.');
+    } else {
+      state.failedAttempts.push('Noen forsøkte å drepe '+state.players[idx].name+', men veteranen overlevde mordforsøket.');
+    }
+  });
+  state.deaths=[...Array.from(mafiaDirect).map(i=>({i,cause:comboDirect.has(i)?'mafia_serie':'natt'})),
+    ...Array.from(bedDead).map(i=>({i,cause:'seng'})),
+    ...Array.from(serieDirect).map(i=>({i,cause:'seriemorder'})),
+    ...Array.from(married).map(i=>({i,cause:'gift'})),
+    ...vetRetaliated.filter(r=>!state.players[r.victimIdx].alive).map(r=>({i:r.victimIdx,cause:'veteran'}))];
+  state.phase='daySummary'; render();
+}
+function checkWin(){
+  const alive=state.players.filter(p=>p.alive);
+  if(alive.length===1 && alive[0].role==='seriemorder') return 'seriemorder';
+  if(alive.length===2 && alive.some(p=>p.role==='mafia') && alive.some(p=>p.role==='seriemorder')) return 'uavgjort';
+  if(alive.length===2 && alive.some(p=>p.role==='mafia') && alive.some(p=>p.role==='bombe')) return 'bombe';
+  const mafia=alive.filter(p=>p.role==='mafia').length;
+  const others=alive.filter(p=>p.role!=='mafia').length;
+  const seriemorderAlive=alive.some(p=>p.role==='seriemorder');
+  if(mafia===0 && !seriemorderAlive) return 'by';
+  if(mafia>=others) return 'mafia';
+  return null;
+}
+function endsGameDirectly(){const w=checkWin(); return w && w!=='bombe'}
+function toVote(){state._eliminatedThisRound=null; state.phase='vote'; render()}
+function afterNightSummary(){
+  const w=checkWin();
+  if(w==='bombe'){state.winner='bombe'; state.phase='bombeLastTwo'; render(); return}
+  if(w){state.winner=w; state.phase='end'; render(); return}
+  toVote();
+}
+function toSheriff(){state.phase='sheriffShoot'; state._sheriffSel=null; render()}
+function selectSheriffTarget(idx){state._sheriffSel=idx; render()}
+function confirmFireSheriff(){
+  if(state._sheriffSel==null) return;
+  fireSheriff(state._sheriffSel);
+}
+function fireSheriff(idx){
+  saveSnapshot();
+  const sIdx=state.players.findIndex(p=>p.role==='sheriff'&&p.alive);
+  const target=state.players[idx];
+  let direct=new Set();
+  let msg;
+  if(target.role==='mafia'||target.role==='seriemorder'){
+    direct.add(idx);
+    state.sheriffCooldownNight=state.night;
+    msg='Sheriffen skjøt '+target.name+' — det var '+(target.role==='mafia'?'mafia':'seriemorderen')+'! '+target.name+' dør. Sheriffen må vente en dag før neste skudd.';
+  } else {
+    direct.add(idx); direct.add(sIdx);
+    msg='Sheriffen skjøt '+target.name+' — en uskyldig! Både sheriffen og '+target.name+' dør.';
+  }
+  let married=new Set();
+  if(state.married){
+    const [a,b]=state.married;
+    if(direct.has(a) && !direct.has(b) && state.players[b].alive) married.add(b);
+    if(direct.has(b) && !direct.has(a) && state.players[a].alive) married.add(a);
+  }
+  direct.forEach(i=>{
+    state.players[i].alive=false;
+    state.deathLog.push({night:state.night,cause:'skudd',name:state.players[i].name,role:state.players[i].role});
+  });
+  married.forEach(i=>{
+    state.players[i].alive=false;
+    state.deathLog.push({night:state.night,cause:'gift',name:state.players[i].name,role:state.players[i].role});
+  });
+  if(married.size) msg+=' '+Array.from(married).map(i=>state.players[i].name).join(' og ')+' var gift med en av de døde, og dør av sorg.';
+  state.sheriffMsg=msg;
+  state._sheriffSel=null;
+  state.phase='sheriffResult'; render();
+}
+function ackSheriffResult(){
+  const w=checkWin();
+  if(w==='bombe'){state.winner='bombe'; state.phase='bombeLastTwo'; render(); return}
+  if(w){state.winner=w; state.phase='end'; render(); return}
+  toVote();
+}
+function castVote(idx){state._voteSel=idx; render()}
+function applyMarriedDeath(idx){
+  if(!state.married) return null;
+  const [a,b]=state.married;
+  let spouseIdx=null;
+  if(idx===a && state.players[b].alive) spouseIdx=b;
+  else if(idx===b && state.players[a].alive) spouseIdx=a;
+  if(spouseIdx!=null){
+    state.players[spouseIdx].alive=false;
+    state.deathLog.push({night:state.night,cause:'gift',name:state.players[spouseIdx].name,role:state.players[spouseIdx].role});
+    return spouseIdx;
+  }
+  return null;
+}
+function confirmVote(){
+  saveSnapshot();
+  const idx=state._voteSel;
+  if(idx==null) return;
+  const p=state.players[idx];
+  state._voteRevealIdx=idx;
+  state._voteSel=null;
+  if(p.role==='hoffnarren' && !p.jesterUsed){
+    p.jesterUsed=true; p.canVote=false;
+    state.deathLog.push({night:state.night,cause:'narr',name:p.name,role:p.role});
+    state._eliminatedThisRound=null;
+    state.voteMarriedDiedName=null;
+    state.phase='voteReveal'; render(); return;
+  }
+  p.alive=false;
+  state.deathLog.push({night:state.night,cause:'dag',name:p.name,role:p.role});
+  const spouseIdx=applyMarriedDeath(idx);
+  state.voteMarriedDiedName = spouseIdx!=null ? state.players[spouseIdx].name : null;
+  state._eliminatedThisRound=idx;
+  state.phase='voteReveal'; render();
+}
+function afterVote(){
+  if(state._eliminatedThisRound!=null){
+    const elim=state.players[state._eliminatedThisRound];
+    if(elim.role==='bombe'){
+      state.winner='bombe'; state.phase='end'; render(); return;
+    }
+    if(elim.role==='hevner'){
+      state.hevnerWinName=elim.name; state.phase='hevnerTarget'; render(); return;
+    }
+  }
+  const w=checkWin();
+  if(w==='bombe'){state.winner='bombe'; state.phase='bombeLastTwo'; render(); return}
+  if(w){state.winner=w; state.phase='end'; render(); return}
+  startNight();
+}
+function hevnerContinue(){
+  const w=checkWin();
+  if(w==='bombe'){state.winner='bombe'; state.phase='bombeLastTwo'; render(); return}
+  if(w){state.winner=w; state.phase='end'; render(); return}
+  startNight();
+}
+function selectHevnerTarget(idx){state._hevnerSel=idx; render()}
+function confirmHevnerKill(){
+  if(state._hevnerSel==null) return;
+  const t=state.players[state._hevnerSel];
+  const tIdx=state._hevnerSel;
+  t.alive=false;
+  state.deathLog.push({night:state.night,cause:'hevner',name:t.name,role:t.role});
+  const spouseIdx=applyMarriedDeath(tIdx);
+  state.hevnerMarriedDiedName = spouseIdx!=null ? state.players[spouseIdx].name : null;
+  state._hevnerSel=null;
+  state.hevnerKilledName=t.name;
+  state.hevnerKilledRole=t.role;
+  state.phase='hevnerResult'; render();
+}
+function ackHevnerResult(){hevnerContinue()}
+function hevnerSkip(){state._hevnerSel=null; hevnerContinue()}
+function revealMayor(idx){state.players[idx].mayorRevealed=true; render()}
+function martyrSacrifice(){
+  const idx=state._voteRevealIdx;
+  const p=state.players[idx];
+  state.savedName=p.name;
+  p.alive=true;
+  if(state.deathLog.length && state.deathLog[state.deathLog.length-1].name===p.name && state.deathLog[state.deathLog.length-1].cause==='dag'){
+    state.deathLog.pop();
+  }
+  if(state.voteMarriedDiedName){
+    const revivedIdx=state.players.findIndex(pl=>pl.name===state.voteMarriedDiedName && !pl.alive);
+    if(revivedIdx>-1 && state.deathLog.length && state.deathLog[state.deathLog.length-1].name===state.players[revivedIdx].name && state.deathLog[state.deathLog.length-1].cause==='gift'){
+      state.players[revivedIdx].alive=true;
+      state.deathLog.pop();
+    }
+    state.voteMarriedDiedName=null;
+  }
+  const martyrIdx=state.players.findIndex(pl=>pl.role==='martyr'&&pl.alive);
+  if(martyrIdx>-1){
+    state.martyrName=state.players[martyrIdx].name;
+    state.players[martyrIdx].alive=false;
+    state.deathLog.push({night:state.night,cause:'martyr',name:state.martyrName,role:'martyr'});
+    const spouseIdx=applyMarriedDeath(martyrIdx);
+    state.martyrMarriedDiedName = spouseIdx!=null ? state.players[spouseIdx].name : null;
+    state._eliminatedThisRound=martyrIdx;
+  } else {
+    state._eliminatedThisRound=null;
+  }
+  state.phase='martyrResult'; render();
+}
+function martyrDecline(){afterVote()}
+function ackBombeLastTwo(){state.phase='end'; render()}
+function restart(){
+  state.phase='setup';
+  state.players=[];
+  state.night=0;
+  state.activeSteps=[];
+  state.stepIndex=0;
+  state.nightData={};
+  state.married=null;
+  state.silenced=null;
+  state.deaths=[];
+  state.detectiveMsg=null;
+  state.winner=null;
+  state.deathLog=[];
+  state.nightRecap=null;
+  state.failedAttempts=null;
+  state.identifyNight=false;
+  state.revealIndex=0;
+  state.prevPhase=null;
+  state._voteSel=null;
+  state._voteRevealIdx=null;
+  state._eliminatedThisRound=null;
+  state.bombeWinName=null;
+  state.hevnerWinName=null;
+  state._hevnerSel=null;
+  state.hevnerKilledName=null;
+  state.hevnerKilledRole=null;
+  state.hevnerMarriedDiedName=null;
+  state.voteMarriedDiedName=null;
+  state.martyrMarriedDiedName=null;
+  state.sheriffMsg=null;
+  state._sheriffSel=null;
+  state.martyrName=null;
+  state.savedName=null;
+  openRoleDrop=null;
+  render();
+}
+
+const SCREENS={
+setup(){
+  const rolesHtml=ROLES.map(r=>{
+    const cfg=state.roles[r.id];
+    const [rank,suit]=cfg.card.split(' ');
+    const selNames = playerNames.filter((n,i)=>playerRoles[i]===r.id);
+    const roleAtLimit = !cfg.enabled && assignedTotal()>=playerCount;
+    const chips = (cfg.enabled && manualAssign) ? `<details class="roledrop" ${openRoleDrop===r.id?'open':''} ontoggle="onRoleDropToggle('${r.id}',this.open)">
+      <summary>${selNames.length?selNames.join(', '):'Velg spillere'} (${selNames.length}/${cfg.count})</summary>
+      <div class="plist">${playerNames.map((n,i)=>({n,i})).filter(p=>playerRoles[p.i]==='sivil'||playerRoles[p.i]===r.id).map(p=>{
+        const isChecked=playerRoles[p.i]===r.id;
+        const atLimit=!isChecked && selNames.length>=cfg.count;
+        return `<label${atLimit?' style="opacity:.4"':''}><input type="checkbox" ${isChecked?'checked':''} ${atLimit?'disabled':''} onclick="toggleRolePlayer('${r.id}',${p.i})"> ${p.n}</label>`;
+      }).join('')}</div>
+    </details>` : '';
+    return `<div class="role-line"${roleAtLimit?' style="opacity:.4"':''}>
+      <input type="checkbox" ${cfg.enabled?'checked':''} ${roleAtLimit?'disabled':''} onclick="toggleRole('${r.id}')">
+      <div class="rname">${r.name}</div>
+      <input type="number" min="0" value="${cfg.count}" ${cfg.enabled?'':'disabled'} onchange="setCount('${r.id}',this.value)">
+      <select ${cfg.enabled?'':'disabled'} onchange="setCard('${r.id}','rank',this.value)">
+        ${RANKS.map(x=>`<option ${x===rank?'selected':''}>${x}</option>`).join('')}
+      </select>
+      <select style="color:${(suit==='♥'||suit==='♦')?'#c96066':'var(--text)'};font-size:1.1rem" ${(cfg.enabled&&rank!=='Joker')?'':'disabled'} onchange="setCard('${r.id}','suit',this.value)">
+        ${SUITS.map(x=>`<option ${x===suit?'selected':''}>${x}</option>`).join('')}
+      </select>
+      <div class="desc">${r.desc}</div>
+      ${chips}
+    </div>`}).join('');
+  return `<h1>Mafia</h1><p class="muted">Spillederens oppsett.</p>
+  <div class="card">
+    <h2>Spillere</h2>
+    <div class="row" style="flex-wrap:nowrap;justify-content:space-between"><span style="display:flex;align-items:center;gap:10px;white-space:nowrap"><label>Antall spillere</label><input type="number" min="3" value="${playerCount}" onchange="setPlayerCount(this.value)"></span>
+    </div>
+    <div class="namegrid">${playerNames.map((n,i)=>`<input type="text" value="${n}" onchange="setName(${i},this.value)">`).join('')}</div>
+  </div>
+  <div class="card">
+    <h2>Roller</h2>
+    <div class="row"><label><input type="checkbox" ${manualAssign?'checked':''} onclick="toggleManualAssign()"> Velg spillere manuelt</label></div>
+    <div class="row"><label><input type="checkbox" ${tilfeldigRollerChecked?'checked':''} onclick="toggleTilfeldigRoller()"> Tilfeldig Roller</label></div>
+    <p class="muted" style="margin-bottom:14px">${manualAssign?'Huk av hvilke roller som er med, sett antall og kort. Klikk på en spiller for å gi dem rollen (eller for å angre).':'Huk av hvilke roller som er med, sett antall og kort. Rollene deles ut med «Tilfeldig Roller» eller identifiseres i spillet natt 1.'}</p>
+    <div style="border:1px solid var(--line);border-radius:6px;padding:14px">${rolesHtml}</div>
+  </div>
+  <p class="muted" style="${tooManyRoles()?'color:var(--blood-bright)':''}">Roller tildelt: ${assignedTotal()} av ${playerCount} spillere</p>
+  ${tooManyRoles()?'<div class="notice" style="border-color:var(--blood-bright)">'+tooManyRolesMsg()+'</div>':''}
+  <div style="display:flex;gap:8px;margin-top:28px">
+  <button onclick="startGame()" ${tooManyRoles()?'disabled':''} style="flex:1">Start natt 1</button>
+  <button class="secondary" onclick="goToReveal()" ${tooManyRoles()?'disabled':''} style="flex:1">Vis rollene på enheten først</button>
+  </div>`;
+},
+reveal(){
+  const p=state.players[state.revealIndex];
+  return `<div class="step-badge">ROLLETILDELING · ${state.revealIndex+1} av ${state.players.length}</div>
+  <h1>Gi enheten til ${p.name}</h1>
+  <div class="card"><p class="muted">Sørg for at ingen andre ser skjermen.</p>
+  <button onclick="showRole()">Vis min rolle</button></div>`;
+},
+revealShown(){
+  const p=state.players[state.revealIndex];
+  const def=ROLES.find(r=>r.id===p.role);
+  return `<h1>${p.name}</h1>
+  <div class="card"><h2>${roleLabel(p.role)}</h2>
+  <p>Kort: ${p.card}</p>
+  <p class="muted">${def? def.desc : 'Ingen nattehandling. Du er en vanlig innbygger.'}</p></div>
+  <button onclick="nextReveal()">Skjul og gi videre</button>`;
+},
+editRoles(){
+  const rows=state.players.map((p,i)=>{
+    const spouse=spouseOf(i);
+    return `<div class="row">
+    <div style="flex:1">${p.name}${p.alive?'':' <span class="tag">død</span>'}${spouse?' <span class="tag" style="color:var(--gold);border-color:var(--gold)">Gift med '+spouse+'</span>':''}</div>
+    <select onchange="editRole(${i},this.value)">
+      <option value="sivil" ${p.role==='sivil'?'selected':''}>Sivil</option>
+      ${ROLES.map(r=>`<option value="${r.id}" ${p.role===r.id?'selected':''}>${r.name}</option>`).join('')}
+    </select></div>`}).join('');
+  return `<h1>Rediger roller</h1><p class="muted">Fiks en feil registrering. Endringer gjelder fra nå av.</p>
+  <div class="row" style="gap:8px;margin-bottom:10px">
+    <span class="muted" style="align-self:center">Sorter etter:</span>
+    <select onchange="sortPlayers(this.value)">
+      <option value="">Velg...</option>
+      <option value="name">Navn</option>
+      <option value="role">Type rolle</option>
+      <option value="status">Status (i live/død)</option>
+      <option value="card">Kort</option>
+      <option value="team">Lag/side</option>
+      <option value="vote">Kan stemme/snakke</option>
+      <option value="random">Tilfeldig</option>
+      <option value="original">Original rekkefølge</option>
+    </select>
+  </div>
+  <div class="card">${rows}</div>
+  <button onclick="closeEdit()">Ferdig</button>`;
+},
+cardRef(){
+  const rankIndex=r=>{const idx=RANKS.indexOf(state.roles[r.id].card.split(' ')[0]); return idx===-1?RANKS.length:idx};
+  const rows=ROLES.filter(r=>state.roles[r.id].enabled).sort((a,b)=>rankIndex(a)-rankIndex(b)).map(r=>{
+    const [rank,suit]=state.roles[r.id].card.split(' ');
+    const isRed=suit==='♥'||suit==='♦';
+    return `<div class="row" style="justify-content:space-between">
+      <span>${r.name}</span>
+      <span style="font-size:1.1rem;${isRed?'color:#c96066':''}">${state.roles[r.id].card}</span>
+    </div>`;
+  }).join('');
+  return `<h1>Kortoversikt</h1><p class="muted">Hvilket kort tilhører hvilken rolle i dette spillet.</p>
+  <div class="card">${rows || '<p class="muted">Ingen roller er aktivert.</p>'}</div>
+  <button onclick="closeCardRef()">Tilbake</button>`;
+},
+night(){
+  const role=state.activeSteps[state.stepIndex];
+  const def=ROLES.find(r=>r.id===role);
+  const nd=state.nightData;
+  const hasAction=NIGHT_ORDER.includes(role) || (role==='spokelse' && !state.identifyNight);
+  const introBanner=(state.identifyNight && state.stepIndex===0)
+    ? '<div class="notice">Ingen roller er registrert ennå. Gå gjennom hver rolle i tur — også de som vanligvis ikke våkner — og huk av hvem som har hva.</div>' : '';
+  const identifyBlock = state.identifyNight ? (()=>{
+    const count=state.roles[role].count;
+    const picked=state.players.filter(p=>p.role===role).length;
+    const candidates=state.players.map((p,i)=>({...p,i})).filter(p=>p.role==='sivil'||p.role===role);
+    const rows=candidates.map(p=>{
+      const isChecked=p.role===role;
+      const atLimit=!isChecked && picked>=count;
+      return `<label style="display:block;padding:4px 2px${atLimit?';opacity:.4':''}"><input type="checkbox" ${isChecked?'checked':''} ${atLimit?'disabled':''} onclick="identifyToggle('${role}',${p.i})"> ${p.name}</label>`;
+    }).join('');
+    return `<div class="card">
+      <h2>Hvem har denne rollen?</h2>
+      <p class="muted">La den/de det gjelder vise deg kortet stille, og huk av her. (${picked}/${count} valgt)</p>
+      ${rows}
+    </div>`;
+  })() : '';
+  const alive=state.players.map((p,i)=>({...p,i})).filter(p=>{
+    if(!p.alive) return false;
+    if(role==='hore' && p.role==='hore') return false;
+    return true;
+  });
+  const isSel=(i)=> role==='prest' ? nd.prestCouple.includes(i) :
+    ({mafia:nd.mafiaTarget,seriemorder:nd.serieTarget,healer:nd.healTarget,hore:nd.horeBed,detektiv:nd.detektivTarget,slakter:nd.slakterTarget,spokelse:nd.spokelseTarget}[role]===i);
+  const list=alive.map(p=>`<button class="pbtn ${isSel(p.i)?'sel':''}" onclick="selectTarget('${role}',${p.i})">${p.name}</button>`).join('');
+  const actionBlock = hasAction ? `<div class="card">${state.identifyNight?'<h2>Handling</h2>':''}<div class="plist">${list}</div></div>` : '';
+  return `<div class="step-badge">NATT ${state.night} · Trinn ${state.stepIndex+1} av ${state.activeSteps.length}</div>
+  <h1>${def.name} våkner</h1>
+  <p class="muted">${def.desc}</p>
+  <div class="btns" style="margin-bottom:10px">
+    <button class="secondary" style="padding:2px 10px" onclick="stepBack()" title="Tilbake">←</button>
+    <button class="secondary" style="padding:2px 10px" onclick="openCardRef()">🂽 Kortoversikt</button>
+    <button class="secondary" style="padding:2px 10px" onclick="openEdit()">✎ Rediger roller</button>
+  </div>
+  ${introBanner}
+  ${identifyBlock}
+  ${actionBlock}
+  <div style="display:flex;gap:8px">
+  <button onclick="confirmStep()" ${stepValid(role)?'':'disabled'} style="flex:1">Bekreft og gå videre</button>
+  </div>`;
+},
+detektivResult(){
+  return `<h1>Detektivens svar</h1><div class="card"><h2>${state.detectiveMsg}</h2>
+  <p class="muted">Vis dette kun til detektiven.</p></div>
+  <button onclick="ackDetektiv()">Fortsett natten</button>`;
+},
+daySummaryEmpty(){return SCREENS.daySummary()},
+daySummary(){
+  const causeLabel={natt:'Mafia',seng:'Samme seng',gift:'Gift (ektefelle døde)',dag:'Utstemt',skudd:'Skutt',narr:'Overlevde (narr)',bombe:'Tatt med av bomben',hevner:'Hevn',martyr:'Ofret seg (martyr)',seriemorder:'Seriemorder',mafia_serie:'Mafia/Seriemorder',veteran:'Skutt av veteranen'};
+  const deathItems=state.deaths.map(d=>{const p=state.players[d.i];
+    return `<div class="death-item"><span>${p.name} <span class="tag">${roleLabel(p.role)}</span></span>
+      <span class="tag cause-${d.cause}">${causeLabel[d.cause]}</span></div>`}).join('');
+  const silencedP=state.silenced!=null?state.players[state.silenced].name:null;
+  const recap=(state.nightRecap||[]).map(l=>`<li>${l}</li>`).join('');
+  return `<div class="hdr-row">
+    <h1>Dag ${state.night}</h1>
+    <span class="btns">
+      ${snapshot?'<button class="secondary" style="padding:2px 10px" onclick="undoNightResolve()" title="Angre siste natt">←</button>':''}
+      <button class="secondary" style="padding:2px 10px" onclick="openCardRef()">🂽 Kortoversikt</button>
+      <button class="secondary" style="padding:2px 10px" onclick="openEdit()">✎ Rediger roller</button>
+    </span>
+  </div>
+  <div class="card">
+    <h2>Hva skjedde i natt</h2>
+    ${recap?'<ul style="margin:6px 0;padding-left:18px;color:var(--muted)">'+recap+'</ul>':'<p class="muted">Ingen nattehandlinger.</p>'}
+  </div>
+  <div class="card">
+    <h2>Dødsfall</h2>
+    ${deathItems || '<p class="muted">Ingen døde i natt.</p>'}
+    ${silencedP? '<p style="margin-top:10px">🤐 '+silencedP+' kan ikke snakke i dag.</p>' : ''}
+    ${(state.failedAttempts||[]).map(m=>'<div class="notice">'+m+'</div>').join('')}
+  </div>
+  <div style="display:flex;gap:8px">
+  <button onclick="afterNightSummary()" style="flex:1">${endsGameDirectly()?'Avslutt spill':'Gå til avstemning'}</button>
+  </div>`;
+},
+sheriffShoot(){
+  const sIdx=state.players.findIndex(p=>p.role==='sheriff'&&p.alive);
+  const alive=state.players.map((p,i)=>({...p,i})).filter(p=>p.alive && p.i!==sIdx);
+  const list=alive.map(p=>`<div class="pbtn ${state._sheriffSel===p.i?'sel':''}" onclick="selectSheriffTarget(${p.i})">${p.name}</div>`).join('');
+  return `<div class="hdr-row">
+    <h1>Sheriffen skyter</h1>
+    <span class="btns">
+      <button class="secondary" style="padding:2px 10px" onclick="backToDaySummary()" title="Tilbake">←</button>
+      <button class="secondary" style="padding:2px 10px" onclick="openCardRef()">🂽 Kortoversikt</button>
+      <button class="secondary" style="padding:2px 10px" onclick="openEdit()">✎ Rediger roller</button>
+    </span>
+  </div>
+  <p class="muted">Velg hvem sheriffen skyter. Er målet verken mafia eller seriemorderen, dør sheriffen også.</p>
+  <div class="card"><div class="plist">${list}</div></div>
+  <div style="display:flex;gap:8px">
+  <button onclick="confirmFireSheriff()" ${state._sheriffSel==null?'disabled':''} style="flex:1">Bekreft</button>
+  <button class="secondary" onclick="toVote()" style="flex:1">Hopp over</button>
+  </div>`;
+},
+sheriffResult(){
+  return `<div class="hdr-row">
+    <h1>Skuddet</h1>
+    <span class="btns">
+      <button class="secondary" style="padding:2px 10px" onclick="undoSheriffShot()" title="Angre skudd">←</button>
+      <button class="secondary" style="padding:2px 10px" onclick="openCardRef()">🂽 Kortoversikt</button>
+      <button class="secondary" style="padding:2px 10px" onclick="openEdit()">✎ Rediger roller</button>
+    </span>
+  </div>
+  <div class="card"><h2>${state.sheriffMsg}</h2></div>
+  <button onclick="ackSheriffResult()">${endsGameDirectly()?'Avslutt spill':'Fortsett'}</button>`;
+},
+vote(){
+  const alive=state.players.map((p,i)=>({...p,i})).filter(p=>p.alive);
+  const canSheriff = roleAliveCount('sheriff')>0 && state.night>2 && (state.sheriffCooldownNight==null || state.night>state.sheriffCooldownNight+1);
+  const list=alive.map(p=>{
+    const mayorExtra = p.role==='ordforer'
+      ? (p.mayorRevealed
+          ? '<span class="tag" style="color:var(--gold);border-color:var(--gold)">2 stemmer</span>'
+          : `<button class="secondary" style="padding:2px 8px;font-size:.75rem" onclick="event.stopPropagation();revealMayor(${p.i})">Avslør (2 stemmer)</button>`)
+      : '';
+    const sheriffExtra = (p.role==='sheriff' && canSheriff)
+      ? `<button class="secondary" style="padding:2px 8px;font-size:.75rem" onclick="event.stopPropagation();toSheriff()">⌖ Sheriffen skyter</button>`
+      : '';
+    return `<div class="pbtn ${state._voteSel===p.i?'sel':''}" style="display:flex;justify-content:space-between;align-items:center" onclick="castVote(${p.i})">
+      <span>${p.name}${p.canTalk?'':' <span class="tag">stum</span>'}${p.canVote===false?' <span class="tag" style="color:var(--muted)">ingen stemmerett</span>':''}</span>
+      ${mayorExtra}${sheriffExtra}</div>`;
+  }).join('');
+  return `<div class="hdr-row">
+    <h1>Avstemning</h1>
+    <span class="btns">
+      <button class="secondary" onclick="backToDaySummary()" style="padding:2px 10px" title="Tilbake">←</button>
+      <button class="secondary" onclick="openCardRef()" style="padding:2px 10px">🂽 Kortoversikt</button>
+      <button class="secondary" onclick="openEdit()" style="padding:2px 10px">✎ Rediger roller</button>
+    </span>
+  </div>
+  <div class="card"><div class="plist">${list}</div></div>
+  <div style="display:flex;gap:8px">
+  <button onclick="confirmVote()" ${state._voteSel==null?'disabled':''} style="flex:1">Bekreft avstemning</button>
+  <button class="secondary" onclick="afterVote()" style="flex:1">Ingen ble stemt ut</button>
+  </div>`;
+},
+voteReveal(){
+  const p=state.players[state._voteRevealIdx];
+  const spared = p.role==='hoffnarren' && p.alive;
+  const canMartyr = !spared && p.role!=='mafia' && p.role!=='martyr' && roleAliveCount('martyr')>0;
+  return `<div class="hdr-row">
+    <h1>Avslørt</h1>
+    <span class="btns">
+      <button class="secondary" onclick="undoVote()" style="padding:2px 10px" title="Angre avstemning">←</button>
+      <button class="secondary" onclick="openCardRef()" style="padding:2px 10px">🂽 Kortoversikt</button>
+      <button class="secondary" onclick="openEdit()" style="padding:2px 10px">✎ Rediger roller</button>
+    </span>
+  </div>
+  <div class="card"><h2>${p.name} var ${roleLabel(p.role)}</h2>
+  ${spared? '<p class="muted">Han overlever avstemningen, men mister stemmeretten resten av spillet.</p>' : ''}
+  ${state.voteMarriedDiedName? '<p class="muted">'+state.voteMarriedDiedName+' var gift med '+p.name+', og dør av sorg.</p>' : ''}
+  ${canMartyr? '<p class="muted" style="margin-top:8px">De var ikke mafia. Vil martyren ofre seg i deres sted?</p>' : ''}</div>
+  ${canMartyr
+    ? '<button onclick="martyrSacrifice()">Martyren ofrer seg</button><button class="secondary" onclick="martyrDecline()" style="margin-left:8px">Nei, fortsett</button>'
+    : '<button onclick="afterVote()">'+(p.role==='bombe'?'Selvmordsbomben vinner →':p.role==='hevner'?'Fortsett':(endsGameDirectly()?'Avslutt spill':'Neste natt'))+'</button>'}`;
+},
+martyrResult(){
+  return `<h1>Martyren ofret seg</h1><div class="card"><h2>${state.martyrName} tok ${state.savedName}s plass og døde istedenfor.</h2>
+  <p class="muted">${state.savedName} overlever avstemningen.</p>
+  ${state.martyrMarriedDiedName? '<p class="muted">'+state.martyrMarriedDiedName+' var gift med '+state.martyrName+', og dør av sorg.</p>' : ''}</div>
+  <button onclick="afterVote()">${endsGameDirectly()?'Avslutt spill':'Fortsett'}</button>`;
+},
+bombeLastTwo(){
+  const bomber=state.players.find(p=>p.role==='bombe'&&p.alive);
+  return `<h1>Bomben smeller!</h1><p class="muted">${bomber?bomber.name:'Selvmordsbomben'} og mafiaen er de eneste som er igjen — bomben smeller, og selvmordsbomben vinner.</p>
+  <button onclick="ackBombeLastTwo()">Avslutt spill</button>`;
+},
+hevnerTarget(){
+  const alive=state.players.map((p,i)=>({...p,i})).filter(p=>p.alive);
+  const list=alive.map(p=>`<div class="pbtn ${state._hevnerSel===p.i?'sel':''}" onclick="selectHevnerTarget(${p.i})">${p.name}</div>`).join('');
+  return `<h1>Hevneren slår til!</h1><p class="muted">${state.hevnerWinName} kan ta med seg én spiller inn i døden. Velg noen, eller hopp over.</p>
+  <div class="card"><div class="plist">${list}</div></div>
+  <div style="display:flex;gap:8px">
+  <button onclick="confirmHevnerKill()" ${state._hevnerSel==null?'disabled':''} style="flex:1">Bekreft</button>
+  <button class="secondary" onclick="hevnerSkip()" style="flex:1">Ta ikke med noen</button>
+  </div>`;
+},
+hevnerResult(){
+  return `<h1>Hevneren slo til</h1><div class="card"><h2>${state.hevnerKilledName} døde, og var ${roleLabel(state.hevnerKilledRole)}.</h2>
+  ${state.hevnerMarriedDiedName? '<p class="muted">'+state.hevnerMarriedDiedName+' var gift med '+state.hevnerKilledName+', og dør av sorg.</p>' : ''}</div>
+  <button onclick="ackHevnerResult()">${endsGameDirectly()?'Avslutt spill':'Fortsett'}</button>`;
+},
+end(){
+  let msg = state.winner==='mafia'?'Mafiaen vinner.' : state.winner==='bombe'?'Selvmordsbomben vinner!' : state.winner==='seriemorder'?'Seriemorderen vinner!' : state.winner==='uavgjort'?'Uavgjort! Kun mafiaen og seriemorderen står igjen, og ingen av dem klarte å ta livet av den andre.' : 'Byen vinner.';
+  if(state.winner==='mafia'){
+    const bomber=state.players.find(p=>p.role==='bombe'&&p.alive);
+    if(bomber) msg+=' Selvmordsbomben ('+bomber.name+') vinner også, siden han sto igjen sammen med mafiaen.';
+  }
+  const rosterItems=state.players.map((p,i)=>{const sp=spouseOf(i);
+    return `<div class="death-item"><span>${p.name}${sp?' <span class="tag" style="color:var(--gold);border-color:var(--gold)">Gift med '+sp+'</span>':''}</span>
+    <span><span class="tag">${roleLabel(p.role)}</span> ${p.alive?'<span class="tag" style="color:#7ec98a;border-color:#7ec98a">i live</span>':'<span class="tag cause-dag">død</span>'}</span></div>`}).join('');
+  const causeLabel={natt:'Mafia',seng:'Samme seng',gift:'Gift (ektefelle døde)',dag:'Utstemt',skudd:'Skutt',narr:'Overlevde (narr)',bombe:'Tatt med av bomben',hevner:'Hevn',martyr:'Ofret seg (martyr)',seriemorder:'Seriemorder',mafia_serie:'Mafia/Seriemorder',veteran:'Skutt av veteranen'};
+  const logItems=state.deathLog.map(d=>`<div class="death-item"><span>${d.name} <span class="tag">${roleLabel(d.role)}</span></span>
+    <span class="tag cause-${d.cause}">${causeLabel[d.cause]} · ${['dag','skudd','narr','bombe','hevner','martyr'].includes(d.cause)?'dag':'natt'} ${d.night}</span></div>`).join('')||'<p class="muted">Ingen dødsfall.</p>';
+  return `<h1>Spillet er over</h1><div class="card"><h2>${msg}</h2></div>
+  <div class="card">
+    <h2>Statistikk</h2>
+    <p>Antall netter spilt: <strong>${state.night}</strong></p>
+  </div>
+  <div class="card"><h2>Dødsfall i rekkefølge</h2>${logItems}</div>
+  <div class="card"><h2>Spillere</h2>${rosterItems}</div>
+  <button onclick="restart()">Nytt spill</button>`;
+}
+};
+function roleLabel(id){const r=ROLES.find(x=>x.id===id); return r? r.name : 'Sivil'}
+function spouseOf(i){
+  if(state.married && state.married.includes(i)){
+    const other = state.married[0]===i ? state.married[1] : state.married[0];
+    return state.players[other].name;
+  }
+  return null;
+}
+render();
+</script>
+</body>
+</html>
